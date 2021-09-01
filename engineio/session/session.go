@@ -25,18 +25,19 @@ type Session struct {
 	params    transport.ConnParameters
 	transport string
 
-	context interface{}
-
-	upgradeLocker sync.RWMutex
+	context          interface{}
+	clearSessionChan chan string
+	upgradeLocker    sync.RWMutex
 }
 
-func New(conn transport.Conn, sid, transport string, params transport.ConnParameters) (*Session, error) {
+func New(conn transport.Conn, sid, transport string, params transport.ConnParameters, clearSessionChan chan string) (*Session, error) {
 	params.SID = sid
 
 	ses := &Session{
-		transport: transport,
-		conn:      conn,
-		params:    params,
+		transport:        transport,
+		conn:             conn,
+		params:           params,
+		clearSessionChan: clearSessionChan,
 	}
 
 	if err := ses.setDeadline(); err != nil {
@@ -69,7 +70,7 @@ func (s *Session) Transport() string {
 func (s *Session) Close() error {
 	s.upgradeLocker.RLock()
 	defer s.upgradeLocker.RUnlock()
-
+	s.clearSessionChan <- s.ID()
 	return s.conn.Close()
 }
 

@@ -19,9 +19,15 @@ type Server struct {
 
 // NewServer returns a server.
 func NewServer(opts *engineio.Options) *Server {
+	// create new server
+	engine := engineio.NewServer(opts)
+
+	// running listener for close session chan
+	go engine.ClearSession()
+
 	return &Server{
 		handlers: newNamespaceHandlers(),
-		engine:   engineio.NewServer(opts),
+		engine:   engine,
 	}
 }
 

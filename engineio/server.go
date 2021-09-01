@@ -26,20 +26,22 @@ type Server struct {
 	requestChecker CheckerFunc
 	connInitor     ConnInitorFunc
 
-	connChan  chan Conn
-	closeOnce sync.Once
+	connChan         chan Conn
+	clearSessionChan chan string
+	closeOnce        sync.Once
 }
 
 // NewServer returns a server.
 func NewServer(opts *Options) *Server {
 	return &Server{
-		transports:     transport.NewManager(opts.getTransport()),
-		pingInterval:   opts.getPingInterval(),
-		pingTimeout:    opts.getPingTimeout(),
-		requestChecker: opts.getRequestChecker(),
-		connInitor:     opts.getConnInitor(),
-		sessions:       session.NewManager(opts.getSessionIDGenerator()),
-		connChan:       make(chan Conn, 1),
+		transports:       transport.NewManager(opts.getTransport()),
+		pingInterval:     opts.getPingInterval(),
+		pingTimeout:      opts.getPingTimeout(),
+		requestChecker:   opts.getRequestChecker(),
+		connInitor:       opts.getConnInitor(),
+		sessions:         session.NewManager(opts.getSessionIDGenerator()),
+		connChan:         make(chan Conn, 1),
+		clearSessionChan: make(chan string),
 	}
 }
 
@@ -58,6 +60,23 @@ func (s *Server) Accept() (Conn, error) {
 		return nil, io.EOF
 	}
 	return c, nil
+}
+
+// Clear session if connection close
+func (s *Server) ClearSession() {
+	defer s.Close()
+
+	for {
+		sid, ok := <-s.clearSessionChan
+
+		if !ok {
+			return
+		}
+
+		if len(sid) > 0 {
+			s.sessions.Remove(sid)
+		}
+	}
 }
 
 func (s *Server) Addr() net.Addr {
@@ -144,7 +163,7 @@ func (s *Server) newSession(ctx context.Context, conn transport.Conn, reqTranspo
 		Upgrades:     s.transports.UpgradeFrom(reqTransport),
 	}
 
-	newSession, err := session.New(conn, s.sessions.NewID(), reqTransport, params)
+	newSession, err := session.New(conn, s.sessions.NewID(), reqTransport, params, s.clearSessionChan)
 	if err != nil {
 		return nil, err
 	}
