@@ -74,9 +74,13 @@ func (s *Server) ClearSession() {
 		}
 
 		if len(sid) > 0 {
-			s.sessions.Remove(sid)
+			s.RemoveSession(sid)
 		}
 	}
+}
+
+func (s *Server) RemoveSession(sid string) {
+	s.sessions.Remove(sid)
 }
 
 func (s *Server) Addr() net.Addr {
