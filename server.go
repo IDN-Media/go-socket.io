@@ -19,9 +19,15 @@ type Server struct {
 
 // NewServer returns a server.
 func NewServer(opts *engineio.Options) *Server {
+	// create new server
+	engine := engineio.NewServer(opts)
+
+	// running listener for close session chan
+	go engine.ClearSession()
+
 	return &Server{
 		handlers: newNamespaceHandlers(),
-		engine:   engineio.NewServer(opts),
+		engine:   engine,
 	}
 }
 
@@ -191,6 +197,11 @@ func (s *Server) Rooms(namespace string) []string {
 // Count number of connections.
 func (s *Server) Count() int {
 	return s.engine.Count()
+}
+
+// RemoveSession from session list.
+func (s *Server) RemoveSession(sid string) {
+	s.engine.RemoveSession(sid)
 }
 
 // ForEach sends data by DataFunc, if room does not exits sends nothing.
